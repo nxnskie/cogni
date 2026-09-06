@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// App profile keyed by Supabase Auth `auth.users.id` (UUID).
+model User {
+  id        String     @id
+  name      String?
+  email     String?    @unique
+  image     String?
+  reviewers Reviewer[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Reviewer {
+  id           String      @id @default(cuid())
+  userId       String
+  title        String
+  fileName     String?
+  summary      String?     @db.Text
+  studyNotes   Json
+  focus        String      @default("balanced")
+  difficulty   String      @default("medium")
+  flashcardCnt Int         @default(10)
+  quizCnt      Int         @default(8)
+  flashcards   Flashcard[]
+  quizItems    QuizItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+}
+
+model Flashcard {
+  id         String   @id @default(cuid())
+  reviewerId String
+  front      String   @db.Text
+  back       String   @db.Text
+  tag        String   @default("General")
+  status     String   @default("needs_review")
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  reviewer   Reviewer @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([reviewerId, sortOrder])
+}
+
+model QuizItem {
+  id            String   @id @default(cuid())
+  reviewerId    String
+  type          String   @default("multiple-choice")
+  question      String   @db.Text
+  options       Json
+  correctAnswer String   @db.Text
+  explanation   String   @db.Text
+  userAnswer    String?  @db.Text
+  isCorrect     Boolean?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  reviewer      Reviewer @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([reviewerId, sortOrder])
+}
