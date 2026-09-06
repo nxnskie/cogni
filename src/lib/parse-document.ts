@@ -77,31 +77,40 @@ export async function parseUploadedDocument(file: File): Promise<{
     throw new DocumentParseError("File is too large (max 25MB).", 413);
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  let raw = "";
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    let raw = "";
 
-  switch (ext as SupportedParseExt) {
-    case ".pdf":
-      raw = await extractPdfText(buffer);
-      break;
-    case ".docx":
-      raw = await extractDocxText(buffer);
-      break;
-    case ".txt":
-    case ".md":
-      raw = extractPlainText(buffer);
-      break;
-  }
+    switch (ext as SupportedParseExt) {
+      case ".pdf":
+        raw = await extractPdfText(buffer);
+        break;
+      case ".docx":
+        raw = await extractDocxText(buffer);
+        break;
+      case ".txt":
+      case ".md":
+        raw = extractPlainText(buffer);
+        break;
+    }
 
-  const markdown = cleanExtractedText(raw);
-  if (markdown.length < MIN_TEXT_CHARS) {
+    const markdown = cleanExtractedText(raw);
+    if (markdown.length < MIN_TEXT_CHARS) {
+      throw new DocumentParseError(
+        "We couldn't extract enough text from that file. Try a clearer document or another format.",
+        422
+      );
+    }
+
+    return { fileName, markdown };
+  } catch (error) {
+    if (error instanceof DocumentParseError) throw error;
+    console.error("[document-parser] local parsing failed:", error);
     throw new DocumentParseError(
-      "We couldn't extract enough text from that file. Try a clearer document or another format.",
+      "We couldn't read that document. Please try another file or paste the text directly.",
       422
     );
   }
-
-  return { fileName, markdown };
 }
 
 export function parseSettingsFromFormData(

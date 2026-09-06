@@ -48,9 +48,26 @@ export function UploadPanel() {
 
   async function refreshHistory() {
     if (!user) return;
-    const res = await fetch("/api/reviewers");
-    if (!res.ok) return;
-    setHistory((await res.json()) as ReviewerListItem[]);
+    try {
+      const res = await fetch("/api/reviewers", {
+        headers: { Accept: "application/json" },
+      });
+      const raw = await res.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        console.error("[upload-panel] non-JSON history response", res.status);
+        return;
+      }
+      if (!res.ok || !Array.isArray(data)) {
+        console.error("[upload-panel] history request failed", res.status, data);
+        return;
+      }
+      setHistory(data as ReviewerListItem[]);
+    } catch (error) {
+      console.error("[upload-panel] history request failed", error);
+    }
   }
 
   async function processFile(file: File) {

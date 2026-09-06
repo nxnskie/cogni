@@ -58,10 +58,26 @@ export function SidebarHistory({
     }
 
     void (async () => {
-      const res = await fetch("/api/reviewers");
-      if (!res.ok) return;
-      const data = (await res.json()) as ReviewerListItem[];
-      setHistory(data);
+      try {
+        const res = await fetch("/api/reviewers", {
+          headers: { Accept: "application/json" },
+        });
+        const raw = await res.text();
+        let data: unknown;
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          console.error("[sidebar-history] non-JSON history response", res.status);
+          return;
+        }
+        if (!res.ok || !Array.isArray(data)) {
+          console.error("[sidebar-history] history request failed", res.status, data);
+          return;
+        }
+        setHistory(data as ReviewerListItem[]);
+      } catch (error) {
+        console.error("[sidebar-history] history request failed", error);
+      }
     })();
   }, [authReady, user, setHistory]);
 
@@ -69,8 +85,21 @@ export function SidebarHistory({
     setLoadingId(item.id);
     try {
       const res = await fetch(`/api/reviewer/${item.id}`);
-      if (!res.ok) throw new Error("Failed to load reviewer");
-      const saved = (await res.json()) as SavedReviewer;
+      const raw = await res.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error("The server returned an unexpected response.");
+      }
+      if (!res.ok) {
+        const message =
+          typeof data === "object" && data !== null && "error" in data
+            ? String(data.error)
+            : "Failed to load reviewer";
+        throw new Error(message);
+      }
+      const saved = data as SavedReviewer;
       loadSaved(saved);
       onSelect();
     } finally {

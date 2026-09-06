@@ -7,6 +7,13 @@ import { ensureAppUser, getAuthUser } from "@/lib/supabase-auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function jsonError(error: string, status: number, details?: unknown) {
+  return NextResponse.json(
+    { error, ...(details !== undefined ? { details } : {}) },
+    { status, headers: { "Cache-Control": "no-store" } }
+  );
+}
+
 async function requireUser() {
   const user = await getAuthUser();
   if (!user) {
@@ -20,23 +27,28 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 /** GET /api/reviewer/[id] */
 export async function GET(_req: NextRequest, context: RouteContext) {
-  const authResult = await requireUser();
-  if ("error" in authResult) return authResult.error;
-  const { id } = await context.params;
+  try {
+    const authResult = await requireUser();
+    if ("error" in authResult) return authResult.error;
+    const { id } = await context.params;
 
-  const record = await prisma.reviewer.findFirst({
-    where: { id, userId: authResult.userId },
-    include: {
-      flashcards: { orderBy: { sortOrder: "asc" } },
-      quizItems: { orderBy: { sortOrder: "asc" } },
-    },
-  });
+    const record = await prisma.reviewer.findFirst({
+      where: { id, userId: authResult.userId },
+      include: {
+        flashcards: { orderBy: { sortOrder: "asc" } },
+        quizItems: { orderBy: { sortOrder: "asc" } },
+      },
+    });
 
-  if (!record) {
-    return NextResponse.json({ error: "Reviewer not found" }, { status: 404 });
+    if (!record) return jsonError("Reviewer not found", 404);
+
+    return NextResponse.json(mapReviewerRecord(record), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    console.error("[reviewer] GET failed:", error);
+    return jsonError("Unable to load this reviewer right now.", 503);
   }
-
-  return NextResponse.json(mapReviewerRecord(record));
 }
 
 const patchSchema = z.object({
@@ -78,28 +90,31 @@ const patchSchema = z.object({
 
 /** PATCH /api/reviewer/[id] — update notes, flashcards, quiz responses */
 export async function PATCH(req: NextRequest, context: RouteContext) {
-  const authResult = await requireUser();
-  if ("error" in authResult) return authResult.error;
-  const { id } = await context.params;
+  try {
+    const authResult = await requireUser();
+    if ("error" in authResult) return authResult.error;
+    const { id } = await context.params;
 
-  const existing = await prisma.reviewer.findFirst({
-    where: { id, userId: authResult.userId },
-  });
-  if (!existing) {
-    return NextResponse.json({ error: "Reviewer not found" }, { status: 404 });
-  }
+    const existing = await prisma.reviewer.findFirst({
+      where: { id, userId: authResult.userId },
+    });
+    if (!existing) return jsonError("Reviewer not found", 404);
 
-  const body = patchSchema.safeParse(await req.json());
-  if (!body.success) {
-    return NextResponse.json(
-      { error: "Invalid patch body", details: body.error.flatten() },
-      { status: 400 }
-    );
-  }
+    let rawBody: unknown;
+    try {
+      rawBody = await req.json();
+    } catch {
+      return jsonError("Invalid patch body", 400);
+    }
+
+    const body = patchSchema.safeParse(rawBody);
+    if (!body.success) {
+      return jsonError("Invalid patch body", 400, body.error.flatten());
+    }
 
   const data = body.data;
 
-  await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx) => {
     if (data.title || data.studyNotes) {
       await tx.reviewer.update({
         where: { id },
@@ -152,32 +167,46 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         });
       }
     }
-  });
+    });
 
-  const updated = await prisma.reviewer.findFirst({
-    where: { id, userId: authResult.userId },
-    include: {
-      flashcards: { orderBy: { sortOrder: "asc" } },
-      quizItems: { orderBy: { sortOrder: "asc" } },
-    },
-  });
+    const updated = await prisma.reviewer.findFirst({
+      where: { id, userId: authResult.userId },
+      include: {
+        flashcards: { orderBy: { sortOrder: "asc" } },
+        quizItems: { orderBy: { sortOrder: "asc" } },
+      },
+    });
 
-  return NextResponse.json(mapReviewerRecord(updated!));
+    if (!updated) return jsonError("Reviewer not found", 404);
+
+    return NextResponse.json(mapReviewerRecord(updated), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    console.error("[reviewer] PATCH failed:", error);
+    return jsonError("Unable to save reviewer changes right now.", 503);
+  }
 }
 
 /** DELETE /api/reviewer/[id] */
 export async function DELETE(_req: NextRequest, context: RouteContext) {
-  const authResult = await requireUser();
-  if ("error" in authResult) return authResult.error;
-  const { id } = await context.params;
+  try {
+    const authResult = await requireUser();
+    if ("error" in authResult) return authResult.error;
+    const { id } = await context.params;
 
-  const result = await prisma.reviewer.deleteMany({
-    where: { id, userId: authResult.userId },
-  });
+    const result = await prisma.reviewer.deleteMany({
+      where: { id, userId: authResult.userId },
+    });
 
-  if (result.count === 0) {
-    return NextResponse.json({ error: "Reviewer not found" }, { status: 404 });
+    if (result.count === 0) return jsonError("Reviewer not found", 404);
+
+    return NextResponse.json(
+      { ok: true },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error) {
+    console.error("[reviewer] DELETE failed:", error);
+    return jsonError("Unable to delete this reviewer right now.", 503);
   }
-
-  return NextResponse.json({ ok: true });
 }

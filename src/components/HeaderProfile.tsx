@@ -71,11 +71,28 @@ export function HeaderProfile() {
   async function clearHistory() {
     setBusy(true);
     try {
-      const res = await fetch("/api/reviewers", { method: "DELETE" });
+      const res = await fetch("/api/reviewers", {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      });
+      const raw = await res.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        toast.error("The server returned an unexpected response.");
+        return;
+      }
       if (res.ok) {
         setHistory([]);
         clear();
         toast.success("History cleared");
+      } else {
+        const message =
+          typeof data === "object" && data !== null && "error" in data
+            ? String(data.error)
+            : "Unable to clear history right now.";
+        toast.error(message);
       }
     } finally {
       setBusy(false);
