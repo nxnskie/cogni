@@ -16,6 +16,7 @@ const eslintConfig = [
     ignores: [
       "src/generated/prisma/**",
       ".next/**",
+      "next-env.d.ts",
       "node_modules/**",
       "python-worker/**",
     ],

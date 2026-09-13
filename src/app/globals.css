@@ -142,3 +142,50 @@ code {
   background-size: 200% 100%;
   animation: sf-shimmer 2.2s linear infinite;
 }
+
+.sf-range {
+  height: 1.25rem;
+  appearance: none;
+  border-radius: 999px;
+  cursor: pointer;
+  outline: none;
+}
+
+.sf-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sf-range::-webkit-slider-runnable-track {
+  height: 0.35rem;
+  border-radius: 999px;
+}
+
+.sf-range::-webkit-slider-thumb {
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.325rem;
+  appearance: none;
+  border: 2px solid var(--sf-bg2);
+  border-radius: 50%;
+  background: var(--sf-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sf-accent) 20%, transparent);
+}
+
+.sf-range::-moz-range-track {
+  height: 0.35rem;
+  border-radius: 999px;
+}
+
+.sf-range::-moz-range-thumb {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid var(--sf-bg2);
+  border-radius: 50%;
+  background: var(--sf-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sf-accent) 20%, transparent);
+}
+
+.sf-range:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sf-accent) 25%, transparent);
+}

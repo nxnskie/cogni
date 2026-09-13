@@ -23,6 +23,11 @@ const FOCUSES: { id: GenerationSettings["focus"]; label: string }[] = [
   { id: "definitions", label: "Definitions" },
 ];
 
+function rangeProgress(value: number, min: number, max: number): string {
+  const percentage = ((value - min) / (max - min)) * 100;
+  return `linear-gradient(to right, var(--sf-accent) ${percentage}%, var(--sf-border) ${percentage}%)`;
+}
+
 export function GenerationControls({ className }: { className?: string }) {
   const settings = useReviewerStore((s) => s.settings);
   const setSettings = useReviewerStore((s) => s.setSettings);
@@ -51,7 +56,14 @@ export function GenerationControls({ className }: { className?: string }) {
           onChange={(e) =>
             setSettings({ flashcardCount: Number(e.target.value) })
           }
-          className="w-full accent-[#06d6a0]"
+          className="sf-range w-full"
+          style={{
+            background: rangeProgress(
+              settings.flashcardCount,
+              MIN_FLASHCARDS,
+              MAX_FLASHCARDS
+            ),
+          }}
         />
       </label>
 
@@ -67,7 +79,14 @@ export function GenerationControls({ className }: { className?: string }) {
           value={settings.quizCount}
           disabled={isGenerating}
           onChange={(e) => setSettings({ quizCount: Number(e.target.value) })}
-          className="w-full accent-[#06d6a0]"
+          className="sf-range w-full"
+          style={{
+            background: rangeProgress(
+              settings.quizCount,
+              MIN_QUIZ_QUESTIONS,
+              MAX_QUIZ_QUESTIONS
+            ),
+          }}
         />
       </label>
 

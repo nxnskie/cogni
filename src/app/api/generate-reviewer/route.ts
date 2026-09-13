@@ -21,8 +21,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const VERCEL_MAX_FLASHCARDS = 30;
-const VERCEL_MAX_QUIZ = 25;
+const VERCEL_MAX_FLASHCARDS = 15;
+const VERCEL_MAX_QUIZ = 10;
 
 const bodySchema = z.object({
   markdown: z.string().min(40, "Markdown payload is too short"),

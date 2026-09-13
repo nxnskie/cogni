@@ -216,7 +216,7 @@ export function UploadPanel() {
           className="hidden"
           onChange={(e) => onFileSelect(e.target.files)}
         />
-        <div className="relative z-[1] flex flex-col items-center gap-3">
+        <div className="relative z-1 flex flex-col items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sf-accent/15 text-sf-accent">
             <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none">
               <path

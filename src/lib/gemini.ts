@@ -165,10 +165,16 @@ export async function generateReviewerFromMarkdown(
   const cleaned = sanitizeMarkdown(markdown);
   const models = modelCandidates();
 
-  const attempts: Array<{ compact: boolean; label: string }> = [
-    { compact: false, label: "full" },
-    { compact: true, label: "compact" },
-  ];
+  const attempts: Array<{ compact: boolean; label: string }> = process.env
+    .VERCEL
+    ? [
+        { compact: true, label: "compact" },
+        { compact: false, label: "full" },
+      ]
+    : [
+        { compact: false, label: "full" },
+        { compact: true, label: "compact" },
+      ];
 
   let lastError: unknown;
 

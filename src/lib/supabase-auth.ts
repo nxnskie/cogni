@@ -50,16 +50,38 @@ export async function ensureAppUser(user: User) {
       ? user.user_metadata.picture
       : null);
 
-  return prisma.user.upsert({
-    where: { id: user.id },
-    create: {
+  const existing = await prisma.user.findUnique({ where: { id: user.id } });
+
+  if (existing) {
+    const emailOwner = email
+      ? await prisma.user.findUnique({ where: { email } })
+      : null;
+
+    return prisma.user.update({
+      where: { id: user.id },
+      data: {
+        // Keep the current Supabase UUID usable even if an old row owns this email.
+        email: emailOwner && emailOwner.id !== user.id ? undefined : email,
+        name,
+        image,
+      },
+    });
+  }
+
+  const emailOwner = email
+    ? await prisma.user.findUnique({ where: { email } })
+    : null;
+
+  if (emailOwner) {
+    console.warn(
+      `[auth] email ${email} already belongs to another app user; creating the current auth user without email`
+    );
+  }
+
+  return prisma.user.create({
+    data: {
       id: user.id,
-      email,
-      name,
-      image,
-    },
-    update: {
-      email: email ?? undefined,
+      email: emailOwner ? null : email,
       name,
       image,
     },

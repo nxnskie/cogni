@@ -29,12 +29,23 @@ export function SidebarHistory({
     const supabase = createClient();
     let cancelled = false;
 
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!cancelled) {
-        setUser(data.user);
-        setAuthReady(true);
-      }
-    });
+    void supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!cancelled) {
+          setUser(data.user);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.warn("[sidebar-history] auth lookup failed", error);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAuthReady(true);
+        }
+      });
 
     const {
       data: { subscription },
