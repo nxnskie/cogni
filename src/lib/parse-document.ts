@@ -3,6 +3,7 @@ import { PDFParse } from "pdf-parse";
 
 const MIN_TEXT_CHARS = 40;
 const MAX_BYTES = 25 * 1024 * 1024;
+const PARSER_TIMEOUT_MS = 15_000;
 
 export const PPTX_UNSUPPORTED_MESSAGE =
   "PPTX file parsing requires converting to PDF first, or paste your text directly.";
@@ -52,8 +53,64 @@ function extractPlainText(buffer: Buffer): string {
   return buffer.toString("utf-8");
 }
 
+async function parseWithExternalService(file: File): Promise<{
+  fileName: string;
+  markdown: string;
+} | null> {
+  const parserUrl = process.env.PARSER_SERVICE_URL?.trim();
+  if (!parserUrl) return null;
+
+  const form = new FormData();
+  form.append("file", file, file.name || "upload.bin");
+
+  try {
+    const response = await fetch(`${parserUrl.replace(/\/$/, "")}/parse`, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(PARSER_TIMEOUT_MS),
+    });
+
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const detail =
+        body && typeof body === "object" && "detail" in body
+          ? String(body.detail)
+          : `Parser service returned ${response.status}`;
+      throw new Error(detail);
+    }
+
+    const parsedBody =
+      body && typeof body === "object"
+        ? (body as Record<string, unknown>)
+        : null;
+
+    if (
+      !parsedBody ||
+      typeof parsedBody.markdown !== "string" ||
+      parsedBody.markdown.trim().length < MIN_TEXT_CHARS
+    ) {
+      throw new Error("Parser service returned unusable text");
+    }
+
+    return {
+      fileName:
+        typeof parsedBody.fileName === "string" && parsedBody.fileName.trim()
+          ? parsedBody.fileName
+          : file.name || "upload.bin",
+      markdown: cleanExtractedText(parsedBody.markdown),
+    };
+  } catch (error) {
+    // Vercel should remain usable when the optional worker is asleep, absent, or unreachable.
+    console.warn(
+      "[document-parser] external parser unavailable; using local parser:",
+      error
+    );
+    return null;
+  }
+}
+
 /**
- * Extract study text from an uploaded file using free Node parsers (no PARSER_URL).
+ * Extract study text using the optional parser service, then reliable local parsers.
  */
 export async function parseUploadedDocument(file: File): Promise<{
   fileName: string;
@@ -76,6 +133,9 @@ export async function parseUploadedDocument(file: File): Promise<{
   if (file.size > MAX_BYTES) {
     throw new DocumentParseError("File is too large (max 25MB).", 413);
   }
+
+  const externalResult = await parseWithExternalService(file);
+  if (externalResult) return externalResult;
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());

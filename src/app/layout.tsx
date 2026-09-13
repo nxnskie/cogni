@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
-import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-  weight: ["400", "500", "600", "700", "800"],
-});
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -29,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${outfit.variable} ${plusJakarta.variable} min-h-screen bg-sf-bg font-sans text-sf-text antialiased`}
+        className={`${plusJakarta.variable} min-h-screen bg-sf-bg font-sans text-sf-text antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     console.error("[upload]", err);
     return NextResponse.json(
       { error: toUserFacingError(message) },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
