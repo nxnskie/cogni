@@ -26,9 +26,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { fileName, markdown } = await parseUploadedDocument(file);
+    const { fileName, markdown, images } = await parseUploadedDocument(file);
 
-    return NextResponse.json({ fileName, markdown });
+    return NextResponse.json({ fileName, markdown, images });
   } catch (err) {
     if (err instanceof DocumentParseError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

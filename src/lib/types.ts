@@ -3,6 +3,19 @@ export interface StudyNoteTopic {
   title: string;
   summary: string;
   bulletPoints: string[];
+  /** Optional deeper explanation shown when the topic is expanded. */
+  details?: string;
+  keyTerms?: string[];
+  diagrams?: NoteDiagram[];
+  imageUrl?: string;
+}
+
+export interface NoteDiagram {
+  url: string;
+  caption?: string;
+  contextText?: string;
+  page?: number;
+  slide?: number;
 }
 
 export type FlashcardStatus = "needs_review" | "mastered";
@@ -14,6 +27,7 @@ export interface Flashcard {
   back: string;
   tag: string;
   status?: FlashcardStatus;
+  imageUrl?: string;
 }
 
 export type QuizType =
@@ -30,13 +44,17 @@ export interface QuizQuestion {
   /** Used for multiple-choice (4 options) and true-false (["True","False"]). */
   options: string[];
   correctAnswer: string;
+  /** Alias accepted from generated payloads; correctAnswer remains the internal field. */
+  answer?: string;
   explanation: string;
+  imageUrl?: string;
   userAnswer?: string | null;
   isCorrect?: boolean | null;
 }
 
 /** Full structured payload returned by Gemini. */
 export interface ReviewerPayload {
+  generatedTitle?: string;
   studyNotes: StudyNoteTopic[];
   flashcards: Flashcard[];
   quiz: QuizQuestion[];
@@ -74,6 +92,14 @@ export interface GenerateReviewerRequest {
   fileName?: string;
   title?: string;
   settings?: Partial<GenerationSettings>;
+  documentImages?: DocumentImage[];
+}
+
+export interface DocumentImage {
+  url: string;
+  contextText?: string;
+  page?: number;
+  slide?: number;
 }
 
 export interface ReviewerListItem {
@@ -105,4 +131,5 @@ export interface SavedReviewer {
 export interface UploadParseResponse {
   fileName: string;
   markdown: string;
+  images?: DocumentImage[];
 }

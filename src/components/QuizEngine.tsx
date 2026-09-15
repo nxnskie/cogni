@@ -45,9 +45,31 @@ export function QuizEngine({ questions, className }: QuizEngineProps) {
   const [finished, setFinished] = useState(false);
   const reviewerId = useReviewerStore((s) => s.reviewerId);
   const updateQuizLocal = useReviewerStore((s) => s.updateQuizLocal);
+  const appendQuiz = useReviewerStore((s) => s.appendQuiz);
+  const [targetCount, setTargetCount] = useState(questions.length);
+  const [expanding, setExpanding] = useState(false);
 
   const total = questions.length;
   const current = total > 0 ? questions[index] : null;
+
+  async function expandQuiz() {
+    if (!reviewerId || targetCount <= total || expanding) return;
+    setExpanding(true);
+    try {
+      const response = await fetch(`/api/reviewer/${reviewerId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetCount }),
+      });
+      const data = (await response.json()) as { quiz?: QuizQuestion[]; error?: string };
+      if (!response.ok || !data.quiz) throw new Error(data.error || "Quiz expansion failed");
+      appendQuiz(data.quiz.slice(total));
+    } catch (error) {
+      console.error("[quiz] expansion failed", error);
+    } finally {
+      setExpanding(false);
+    }
+  }
 
   const score = useMemo(() => {
     let correct = 0;
@@ -85,7 +107,7 @@ export function QuizEngine({ questions, className }: QuizEngineProps) {
         <p className="text-xs uppercase tracking-[0.2em] text-sf-gold">
           Quiz complete
         </p>
-        <p className="font-display text-5xl font-bold tabular-nums text-sf-accent">
+        <p className="text-5xl font-bold tabular-nums text-sf-accent">
           {score.percent}%
         </p>
         <p className="text-sm text-sf-muted">
@@ -174,11 +196,46 @@ export function QuizEngine({ questions, className }: QuizEngineProps) {
         </span>
       </div>
 
+      {reviewerId && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-sf-border bg-sf-card/70 p-3 text-sm">
+          <label htmlFor="quiz-target" className="text-sf-muted">
+            Quiz size
+          </label>
+          <input
+            id="quiz-target"
+            type="number"
+            min={total}
+            max={100}
+            value={targetCount}
+            onChange={(event) => setTargetCount(Number(event.target.value))}
+            className="w-20 rounded-lg border border-sf-border bg-sf-bg2 px-2 py-1 text-sf-text"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={expanding || targetCount <= total || targetCount > 100}
+            onClick={() => void expandQuiz()}
+          >
+            {expanding ? "Generating…" : "Add questions"}
+          </Button>
+        </div>
+      )}
+
       <p className="w-fit rounded-lg bg-sf-accent/15 px-2.5 py-1 text-xs font-medium text-sf-accent">
         {typeLabel(current.type)}
       </p>
 
-      <h3 className="font-display text-xl font-semibold leading-snug text-sf-text">
+      {current.imageUrl && (
+        <img
+          src={current.imageUrl}
+          alt="Illustration for this question"
+          className="max-h-72 w-full rounded-xl border border-sf-border object-contain"
+          loading="lazy"
+        />
+      )}
+
+      <h3 className="text-xl font-semibold leading-snug text-sf-text">
         {current.question}
       </h3>
 

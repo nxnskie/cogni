@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { REVIEWER_RESPONSE_SCHEMA, reviewerPayloadSchema, sanitizeReviewerPayload } from "./schemas";
 import { SYSTEM_INSTRUCTION, buildUserPrompt } from "./prompts";
-import type { GenerationSettings, ReviewerPayload } from "./types";
+import type { DocumentImage, GenerationSettings, ReviewerPayload } from "./types";
 import { DEFAULT_GENERATION_SETTINGS } from "./types";
 
 /** Fast Flash model tuned for Vercel serverless latency. */
@@ -159,7 +159,8 @@ function shuffleArray<T>(items: T[]): T[] {
 export async function generateReviewerFromMarkdown(
   markdown: string,
   fileName?: string,
-  settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS
+  settings: GenerationSettings = DEFAULT_GENERATION_SETTINGS,
+  documentImages: DocumentImage[] = []
 ): Promise<ReviewerPayload> {
   const ai = getClient();
   const cleaned = sanitizeMarkdown(markdown);
@@ -184,6 +185,7 @@ export async function generateReviewerFromMarkdown(
         const contents = buildUserPrompt(cleaned, fileName, {
           compact: attempt.compact,
           settings,
+          documentImages,
         });
 
         const response = await ai.models.generateContent({

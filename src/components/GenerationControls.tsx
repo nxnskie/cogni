@@ -36,7 +36,7 @@ export function GenerationControls({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "grid gap-4 rounded-2xl border border-sf-border bg-sf-card/70 p-4 sm:grid-cols-2",
+        "grid gap-4 rounded-xl border border-sf-border/70 bg-sf-card/60 p-4 sm:grid-cols-2",
         className
       )}
     >
@@ -92,15 +92,14 @@ export function GenerationControls({ className }: { className?: string }) {
 
       <div className="space-y-2 text-sm sm:col-span-2">
         <p className="text-xs text-sf-faint">
-          Defaults: 20 flashcards and 15 mixed quiz questions (MCQ, true/false,
-          identification, fill-in). Sets are shuffled each run. On production,
-          very large sets are capped for speed.
+          Start with 20 cards and 15 mixed questions. You can adjust the balance
+          before generating a set.
         </p>
       </div>
 
       <div className="space-y-2 text-sm">
         <p className="text-sf-muted">Quiz difficulty</p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1 rounded-lg bg-sf-bg2 p-1">
           {DIFFICULTIES.map((d) => (
             <button
               key={d}
@@ -108,10 +107,10 @@ export function GenerationControls({ className }: { className?: string }) {
               disabled={isGenerating}
               onClick={() => setSettings({ difficulty: d })}
               className={cn(
-                "rounded-lg px-3 py-1.5 capitalize transition-colors",
+                "rounded-md border border-transparent px-3 py-1.5 capitalize transition-colors",
                 settings.difficulty === d
-                  ? "bg-sf-accent text-sf-bg"
-                  : "bg-sf-bg2 text-sf-muted hover:text-sf-text"
+                  ? "bg-sf-card-hover text-sf-text shadow-sm"
+                  : "text-sf-muted hover:bg-sf-card-hover/70 hover:text-sf-text"
               )}
             >
               {d}
@@ -122,7 +121,7 @@ export function GenerationControls({ className }: { className?: string }) {
 
       <div className="space-y-2 text-sm">
         <p className="text-sf-muted">Reviewer focus</p>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1 rounded-lg bg-sf-bg2 p-1">
           {FOCUSES.map((f) => (
             <button
               key={f.id}
@@ -130,10 +129,10 @@ export function GenerationControls({ className }: { className?: string }) {
               disabled={isGenerating}
               onClick={() => setSettings({ focus: f.id })}
               className={cn(
-                "rounded-lg px-3 py-1.5 transition-colors",
+                "rounded-md border border-transparent px-3 py-1.5 transition-colors",
                 settings.focus === f.id
-                  ? "bg-sf-accent text-sf-bg"
-                  : "bg-sf-bg2 text-sf-muted hover:text-sf-text"
+                  ? "bg-sf-card-hover text-sf-text shadow-sm"
+                  : "text-sf-muted hover:bg-sf-card-hover/70 hover:text-sf-text"
               )}
             >
               {f.label}

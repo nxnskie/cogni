@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import "./globals.css";
 
-const plusJakarta = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-jakarta",
+  display: "swap",
   weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
   title: "Cogni",
   description:
-    "Upload study materials and generate notes, flashcards, and quizzes with AI.",
+    "Upload study files and build notes, flashcards, and practice questions.",
 };
 
 export default function RootLayout({
@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${plusJakarta.variable} min-h-screen bg-sf-bg font-sans text-sf-text antialiased`}
+        className={`${inter.className} min-h-screen bg-sf-bg font-sans text-sf-text antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

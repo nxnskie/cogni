@@ -1,9 +1,11 @@
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
+import type { DocumentImage } from "./types";
 
 const MIN_TEXT_CHARS = 40;
-const MAX_BYTES = 25 * 1024 * 1024;
-const PARSER_TIMEOUT_MS = 15_000;
+const MAX_BYTES = process.env.VERCEL
+  ? 4 * 1024 * 1024
+  : 25 * 1024 * 1024;
 
 export const PPTX_UNSUPPORTED_MESSAGE =
   "PPTX file parsing requires converting to PDF first, or paste your text directly.";
@@ -56,6 +58,7 @@ function extractPlainText(buffer: Buffer): string {
 async function parseWithExternalService(file: File): Promise<{
   fileName: string;
   markdown: string;
+  images: DocumentImage[];
 } | null> {
   const parserUrl = process.env.PARSER_SERVICE_URL?.trim();
   if (!parserUrl) return null;
@@ -67,63 +70,53 @@ async function parseWithExternalService(file: File): Promise<{
     const response = await fetch(`${parserUrl.replace(/\/$/, "")}/parse`, {
       method: "POST",
       body: form,
-      signal: AbortSignal.timeout(PARSER_TIMEOUT_MS),
+      signal: AbortSignal.timeout(15_000),
     });
-
     const body: unknown = await response.json().catch(() => null);
-    if (!response.ok) {
-      const detail =
-        body && typeof body === "object" && "detail" in body
-          ? String(body.detail)
-          : `Parser service returned ${response.status}`;
-      throw new Error(detail);
-    }
-
-    const parsedBody =
-      body && typeof body === "object"
-        ? (body as Record<string, unknown>)
-        : null;
-
-    if (
-      !parsedBody ||
-      typeof parsedBody.markdown !== "string" ||
-      parsedBody.markdown.trim().length < MIN_TEXT_CHARS
-    ) {
+    if (!response.ok) throw new Error(`Parser service returned ${response.status}`);
+    const parsed = body as Record<string, unknown>;
+    if (typeof parsed.markdown !== "string" || parsed.markdown.trim().length < MIN_TEXT_CHARS) {
       throw new Error("Parser service returned unusable text");
     }
-
+    const images = Array.isArray(parsed.images)
+      ? parsed.images.filter(
+          (image): image is DocumentImage =>
+            Boolean(image) && typeof image === "object" &&
+            typeof (image as Record<string, unknown>).url === "string"
+        ).map((image) => ({
+          url: image.url,
+          contextText: image.contextText,
+          page: typeof (image as DocumentImage).page === "number"
+            ? (image as DocumentImage).page
+            : undefined,
+          slide: typeof (image as DocumentImage).slide === "number"
+            ? (image as DocumentImage).slide
+            : undefined,
+        }))
+      : [];
     return {
-      fileName:
-        typeof parsedBody.fileName === "string" && parsedBody.fileName.trim()
-          ? parsedBody.fileName
-          : file.name || "upload.bin",
-      markdown: cleanExtractedText(parsedBody.markdown),
+      fileName: typeof parsed.fileName === "string" ? parsed.fileName : file.name,
+      markdown: cleanExtractedText(parsed.markdown),
+      images,
     };
   } catch (error) {
-    // Vercel should remain usable when the optional worker is asleep, absent, or unreachable.
-    console.warn(
-      "[document-parser] external parser unavailable; using local parser:",
-      error
-    );
+    console.warn("[document-parser] external parser unavailable; using local parser:", error);
     return null;
   }
 }
 
 /**
- * Extract study text using the optional parser service, then reliable local parsers.
+ * Extract study text using the local parsers supported by the web app.
  */
 export async function parseUploadedDocument(file: File): Promise<{
   fileName: string;
   markdown: string;
+  images: DocumentImage[];
 }> {
   const fileName = file.name || "upload.bin";
   const ext = getExtension(fileName);
 
-  if (ext === ".pptx") {
-    throw new DocumentParseError(PPTX_UNSUPPORTED_MESSAGE, 400);
-  }
-
-  if (![".pdf", ".docx", ".txt", ".md"].includes(ext)) {
+  if (![".pdf", ".docx", ".pptx", ".txt", ".md"].includes(ext)) {
     throw new DocumentParseError(
       "Unsupported file type. Please use PDF, DOCX, TXT, or MD.",
       400
@@ -131,11 +124,23 @@ export async function parseUploadedDocument(file: File): Promise<{
   }
 
   if (file.size > MAX_BYTES) {
-    throw new DocumentParseError("File is too large (max 25MB).", 413);
+    throw new DocumentParseError(
+      process.env.VERCEL
+        ? "File is too large for this deployment (max 4MB)."
+        : "File is too large (max 25MB).",
+      413
+    );
   }
 
   const externalResult = await parseWithExternalService(file);
   if (externalResult) return externalResult;
+
+  if (ext === ".pptx") {
+    throw new DocumentParseError(
+      `${PPTX_UNSUPPORTED_MESSAGE} Configure PARSER_SERVICE_URL to enable PPTX parsing.`,
+      400
+    );
+  }
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -162,7 +167,7 @@ export async function parseUploadedDocument(file: File): Promise<{
       );
     }
 
-    return { fileName, markdown };
+    return { fileName, markdown, images: [] };
   } catch (error) {
     if (error instanceof DocumentParseError) throw error;
     console.error("[document-parser] local parsing failed:", error);

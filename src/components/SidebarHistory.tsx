@@ -17,11 +17,13 @@ export function SidebarHistory({
   onSelect: () => void;
 }) {
   const history = useReviewerStore((s) => s.history);
+  const activeTitle = useReviewerStore((s) => s.title);
   const setHistory = useReviewerStore((s) => s.setHistory);
   const loadSaved = useReviewerStore((s) => s.loadSaved);
   const removeHistoryItem = useReviewerStore((s) => s.removeHistoryItem);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
@@ -70,6 +72,7 @@ export function SidebarHistory({
 
     void (async () => {
       try {
+        setHistoryError(null);
         const res = await fetch("/api/reviewers", {
           headers: { Accept: "application/json" },
         });
@@ -78,16 +81,23 @@ export function SidebarHistory({
         try {
           data = JSON.parse(raw);
         } catch {
-          console.error("[sidebar-history] non-JSON history response", res.status);
+          console.warn("[sidebar-history] non-JSON history response", res.status);
+          setHistoryError("History is temporarily unavailable.");
           return;
         }
         if (!res.ok || !Array.isArray(data)) {
-          console.error("[sidebar-history] history request failed", res.status, data);
+          console.warn("[sidebar-history] history request failed", res.status, data);
+          setHistoryError(
+            typeof data === "object" && data !== null && "error" in data
+              ? String(data.error)
+              : "History is temporarily unavailable."
+          );
           return;
         }
         setHistory(data as ReviewerListItem[]);
       } catch (error) {
-        console.error("[sidebar-history] history request failed", error);
+        console.warn("[sidebar-history] history request failed", error);
+        setHistoryError("History is temporarily unavailable.");
       }
     })();
   }, [authReady, user, setHistory]);
@@ -142,10 +152,18 @@ export function SidebarHistory({
     );
   }
 
+  if (historyError) {
+    return (
+      <div className="px-3 py-4 text-xs leading-relaxed text-sf-faint">
+        {historyError}
+      </div>
+    );
+  }
+
   if (history.length === 0) {
     return (
       <div className="px-3 py-4 text-xs leading-relaxed text-sf-faint">
-        No saved reviewers yet. Generate one to start your history.
+        No saved sets yet. Create one to keep it here.
       </div>
     );
   }
@@ -153,7 +171,7 @@ export function SidebarHistory({
   return (
     <div className="flex flex-col gap-1 px-2">
       <p className="px-2 pb-1 text-[11px] font-medium uppercase tracking-[0.16em] text-sf-faint">
-        History
+        Saved sets
       </p>
       {history.map((item) => (
         <div key={item.id} className="group relative">
@@ -168,10 +186,14 @@ export function SidebarHistory({
             )}
           >
             <p className="truncate text-sm font-medium">
-              {loadingId === item.id ? "Loading…" : item.title}
+              {loadingId === item.id
+                ? "Loading…"
+                : item.id === activeId && activeTitle
+                  ? activeTitle
+                  : item.title}
             </p>
             <p className="truncate text-[11px] text-sf-faint">
-              {item.summary || item.fileName || "Saved reviewer"}
+              {item.summary || item.fileName || "Study set"}
             </p>
           </button>
           <div className="absolute right-1 top-1.5 opacity-0 transition-opacity group-hover:opacity-100">

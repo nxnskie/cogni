@@ -52,6 +52,7 @@ export async function saveReviewerForUser(params: {
           front: card.front,
           back: card.back,
           tag: card.tag || "General",
+          imageUrl: card.imageUrl ?? null,
           status: card.status ?? "needs_review",
           sortOrder: index,
         })),
@@ -63,6 +64,7 @@ export async function saveReviewerForUser(params: {
           options: item.options as unknown as Prisma.InputJsonValue,
           correctAnswer: item.correctAnswer,
           explanation: item.explanation,
+          imageUrl: item.imageUrl ?? null,
           sortOrder: index,
         })),
       },
@@ -92,6 +94,7 @@ export function mapReviewerRecord(record: {
     back: string;
     tag: string;
     status: string;
+    imageUrl: string | null;
   }>;
   quizItems: Array<{
     id: string;
@@ -100,6 +103,7 @@ export function mapReviewerRecord(record: {
     options: unknown;
     correctAnswer: string;
     explanation: string;
+    imageUrl: string | null;
     userAnswer: string | null;
     isCorrect: boolean | null;
   }>;
@@ -120,6 +124,7 @@ export function mapReviewerRecord(record: {
       front: c.front,
       back: c.back,
       tag: c.tag,
+      imageUrl: c.imageUrl ?? undefined,
       status: (c.status === "mastered" ? "mastered" : "needs_review") as
         | "mastered"
         | "needs_review",
@@ -134,6 +139,8 @@ export function mapReviewerRecord(record: {
         options: opts,
         correctAnswer: q.correctAnswer,
         explanation: q.explanation,
+        answer: q.correctAnswer,
+        imageUrl: q.imageUrl ?? undefined,
         userAnswer: q.userAnswer,
         isCorrect: q.isCorrect,
       };

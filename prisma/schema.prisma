@@ -26,6 +26,7 @@ model Reviewer {
   title        String
   fileName     String?
   summary      String?     @db.Text
+  /// JSON array of StudyNoteTopic objects: title, summary, bulletPoints, and optional details.
   studyNotes   Json
   focus        String      @default("balanced")
   difficulty   String      @default("medium")
@@ -46,6 +47,7 @@ model Flashcard {
   front      String   @db.Text
   back       String   @db.Text
   tag        String   @default("General")
+  imageUrl   String?
   status     String   @default("needs_review")
   sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
@@ -63,6 +65,7 @@ model QuizItem {
   options       Json
   correctAnswer String   @db.Text
   explanation   String   @db.Text
+  imageUrl      String?
   userAnswer    String?  @db.Text
   isCorrect     Boolean?
   sortOrder     Int      @default(0)

@@ -31,13 +31,6 @@ export function toUserFacingError(
   if (/timeout|timed out|FUNCTION_INVOCATION/i.test(m)) {
     return "Generation took too long. Try fewer flashcards or quiz questions, then upload again.";
   }
-  if (
-    /Python parser|PARSER_URL|Could not reach|npm run dev:worker|ECONNREFUSED|localhost|127\.0\.0\.1/i.test(
-      m
-    )
-  ) {
-    return "Document processing is temporarily unavailable. Please try again shortly.";
-  }
   if (/Parser returned too little|too little usable text|Markdown payload is too short/i.test(m)) {
     return "We couldn't extract enough text from that file. Try a clearer document or another format.";
   }
@@ -54,7 +47,9 @@ export function toUserFacingError(
     return m;
   }
   if (/File too large/i.test(m)) {
-    return "File is too large (max 25MB).";
+    return /deployment|4MB/i.test(m)
+      ? "File is too large for this deployment (max 4MB)."
+      : "File is too large (max 25MB).";
   }
   if (/Upload\/parse failed|Generation failed|Parser failed/i.test(m)) {
     return "Something went wrong while processing your file. Please try again.";

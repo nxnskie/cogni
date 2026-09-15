@@ -29,7 +29,7 @@ export function AppShell({ children }: AppShellProps) {
         className="sf-bg-anim pointer-events-none fixed inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(ellipse at 15% 45%, rgba(6,214,160,0.07) 0%, transparent 50%), radial-gradient(ellipse at 85% 15%, rgba(255,209,102,0.045) 0%, transparent 48%), radial-gradient(ellipse at 50% 90%, rgba(17,138,178,0.05) 0%, transparent 50%)",
+            "linear-gradient(135deg, color-mix(in oklab, var(--sf-bg2) 35%, transparent), transparent 42%), linear-gradient(315deg, color-mix(in oklab, var(--sf-card) 24%, transparent), transparent 55%)",
         }}
       />
 
@@ -72,15 +72,15 @@ export function AppShell({ children }: AppShellProps) {
               </svg>
             </span>
             <div>
-              <p className="font-display text-xl font-bold tracking-tight">
+              <p className="text-xl font-bold tracking-tight">
                 Cogni
               </p>
-              <p className="text-xs text-sf-faint">Master your materials</p>
+              <p className="text-xs text-sf-faint">Study workspace</p>
             </div>
           </div>
-          <Button type="button" className="w-full" onClick={goNew}>
+          <Button type="button" variant="secondary" className="w-full" onClick={goNew}>
             <Plus className="h-4 w-4" />
-            New Reviewer
+            New set
           </Button>
         </div>
 

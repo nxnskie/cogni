@@ -15,6 +15,7 @@ import {
   MAX_FLASHCARDS,
   MAX_QUIZ_QUESTIONS,
   type GenerationSettings,
+  type DocumentImage,
 } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -23,7 +24,6 @@ export const maxDuration = 60;
 
 const VERCEL_MAX_FLASHCARDS = 15;
 const VERCEL_MAX_QUIZ = 10;
-
 const bodySchema = z.object({
   markdown: z.string().min(40, "Markdown payload is too short"),
   fileName: z.string().max(260).optional(),
@@ -37,6 +37,10 @@ const bodySchema = z.object({
         .enum(["conceptual", "formulas", "definitions", "balanced"])
         .optional(),
     })
+    .optional(),
+  documentImages: z
+    .array(z.object({ url: z.string().url(), contextText: z.string().optional() }))
+    .max(20)
     .optional(),
 });
 
@@ -78,6 +82,7 @@ async function resolveRequestPayload(req: NextRequest): Promise<{
   fileName?: string;
   title?: string;
   settings: GenerationSettings;
+  documentImages: DocumentImage[];
 }> {
   const contentType = req.headers.get("content-type") || "";
 
@@ -89,7 +94,7 @@ async function resolveRequestPayload(req: NextRequest): Promise<{
       throw new DocumentParseError("Please choose a file to upload.", 400);
     }
 
-    const { fileName, markdown } = await parseUploadedDocument(file);
+    const { fileName, markdown, images } = await parseUploadedDocument(file);
     const formSettings = parseSettingsFromFormData(form);
     const titleRaw = form.get("title");
     const title =
@@ -105,6 +110,7 @@ async function resolveRequestPayload(req: NextRequest): Promise<{
         ...DEFAULT_GENERATION_SETTINGS,
         ...formSettings,
       }),
+      documentImages: images,
     };
   }
 
@@ -136,6 +142,7 @@ async function resolveRequestPayload(req: NextRequest): Promise<{
       ...DEFAULT_GENERATION_SETTINGS,
       ...parsed.data.settings,
     }),
+    documentImages: parsed.data.documentImages ?? [],
   };
 }
 
@@ -146,17 +153,7 @@ async function resolveRequestPayload(req: NextRequest): Promise<{
  */
 export async function POST(req: NextRequest) {
   try {
-    if (!process.env.GEMINI_API_KEY?.trim()) {
-      console.error(
-        "CRITICAL API ROUTE ERROR: Missing GEMINI_API_KEY environment variable"
-      );
-      return jsonError(
-        "Missing GEMINI_API_KEY environment variable on Vercel.",
-        500
-      );
-    }
-
-    const { markdown, fileName, title, settings } =
+    const { markdown, fileName, title, settings, documentImages } =
       await resolveRequestPayload(req);
 
     if (markdown.length > MAX_MARKDOWN_CHARS) {
@@ -166,11 +163,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payload = await generateReviewerFromMarkdown(
-      markdown,
-      fileName,
-      settings
-    );
+    let payload;
+    try {
+      payload = await generateReviewerFromMarkdown(
+        markdown,
+        fileName,
+        settings,
+        documentImages
+      );
+    } catch (generationError) {
+      const message = extractGeminiError(generationError);
+      console.error("[generate-reviewer] Gemini generation failed", generationError);
+      return jsonError(
+        toUserFacingError(
+          message,
+          "An unexpected error occurred while generating the reviewer."
+        ),
+        500,
+        process.env.NODE_ENV === "development" ? message : undefined
+      );
+    }
 
     // Auth + DB save must never turn a successful generation into an HTML 500.
     let reviewerId: string | null = null;
@@ -185,6 +197,7 @@ export async function POST(req: NextRequest) {
           userId: user.id,
           title:
             title?.trim() ||
+            payload.generatedTitle ||
             fileName?.replace(/\.[^.]+$/, "") ||
             payload.studyNotes[0]?.title ||
             "Untitled reviewer",

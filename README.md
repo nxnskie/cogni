@@ -1,11 +1,11 @@
 # Cogni
 
-Full-stack study reviewer: upload PDF / PPTX / DOCX → Markdown (Python MarkItDown) → Gemini structured notes, flashcards, and quizzes.
+Full-stack study reviewer: upload PDF / DOCX / PPTX / TXT / MD → structured notes, flashcards, quizzes, and relevant document images.
 
 ## Features
 
 - **Guest mode** — generate without an account (session-only UI state)
-- **Google OAuth (Auth.js v5)** — save reviewers to Neon Postgres (Prisma)
+- **Supabase Auth (Google)** — save reviewers to Supabase Postgres (Prisma)
 - **Generation controls** — flashcard count, quiz count, difficulty, focus
 - **History sidebar** — open / delete saved reviewers
 - **Settings** — light/dark theme, account, clear history
@@ -13,52 +13,59 @@ Full-stack study reviewer: upload PDF / PPTX / DOCX → Markdown (Python MarkItD
 ## Stack
 
 - Next.js App Router + TypeScript + Tailwind
-- NextAuth.js v5 + Prisma Adapter
-- Neon PostgreSQL
-- `@google/genai` (`gemini-3.6-flash`)
-- FastAPI + MarkItDown worker
+- Supabase Auth
+- Prisma + Supabase PostgreSQL
+- `@google/genai` (`gemini-2.5-flash`)
+- In-process PDF / DOCX parsing
+- Optional Python worker for embedded image extraction and Supabase Storage uploads
 
 ## Setup
 
 ```bash
 npm install
 cp .env.example .env.local
-# Also keep a local `.env` (same DB URLs) for Prisma CLI, or copy .env.local → .env
 npx prisma generate
-npx prisma db push
 ```
+
+Run [`supabase/schema.sql`](supabase/schema.sql) once in Supabase Dashboard → **SQL Editor**. Then copy the database password from Supabase Dashboard → **Project Settings → Database → Connect** into the `DATABASE_URL` and `DIRECT_URL` values in both `.env.local` and `.env`.
+
+For embedded PDF/DOCX/PPTX images, install the optional worker dependencies, create the `document-images` bucket in Supabase Storage, and configure `PARSER_SERVICE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET`. The service-role key must stay server-side and must never be exposed to the browser. On Vercel, `PARSER_SERVICE_URL` must point to a separately deployed worker; Vercel does not run `Start-Parser.cmd`.
+
+The generator uses the full uploaded text up to the configured request ceiling, spreads coverage across the complete source, creates a synthesized title when none is supplied, and supports adding more quiz questions from the active quiz view.
 
 ### Required env
 
 | Variable | Purpose |
 |----------|---------|
-| `DATABASE_URL` | Neon pooled connection |
-| `DIRECT_URL` | Neon direct connection (migrations) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `DATABASE_URL` | Supabase Postgres pooled connection |
+| `DIRECT_URL` | Supabase Postgres direct connection |
 | `GEMINI_API_KEY` | Google AI Studio key |
-| `AUTH_SECRET` | Auth.js secret |
-| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth (optional until you enable sign-in) |
-| `AUTH_URL` / `NEXTAUTH_URL` | `http://localhost:3000` |
-| `PARSER_URL` | `http://127.0.0.1:8001/parse` |
+| `GEMINI_MODEL` | Gemini model name (optional) |
+| `PARSER_SERVICE_URL` | Optional worker URL, such as `http://localhost:8001` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only key used by the worker to upload images |
+| `SUPABASE_STORAGE_BUCKET` | Storage bucket for extracted images |
 
-### Google OAuth
+### Google OAuth (Supabase)
 
-1. Create OAuth client in Google Cloud Console
-2. Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
-3. Put client id/secret in `.env.local`
+1. Enable Google in Supabase → Auth → Providers
+2. Redirect URL: `http://localhost:3000/auth/callback`
+
+Supabase Auth and Supabase Postgres use separate credentials. The anon key authenticates browser requests; Prisma still needs the database password in the two server-only connection strings.
 
 ## Run
 
 ```bash
-npm run dev:worker   # Python parser :8001
 npm run dev          # Next.js :3000
+# Optional image extraction worker:
+Start-Parser.cmd
 ```
 
 ## Project layout
 
 ```
 prisma/schema.prisma
-src/auth.ts
 src/app/api/...
 src/components/
-python-worker/
 ```

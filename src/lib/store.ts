@@ -31,6 +31,7 @@ interface ReviewerStore {
   setError: (message: string | null) => void;
   setSettings: (partial: Partial<GenerationSettings>) => void;
   setHistory: (items: ReviewerListItem[]) => void;
+  updateTitle: (title: string) => void;
   removeHistoryItem: (id: string) => void;
   updateFlashcardLocal: (
     id: string,
@@ -40,6 +41,7 @@ interface ReviewerStore {
     id: string,
     patch: Partial<ReviewerPayload["quiz"][number]>
   ) => void;
+  appendQuiz: (questions: ReviewerPayload["quiz"]) => void;
   clear: () => void;
 }
 
@@ -83,6 +85,13 @@ export const useReviewerStore = create<ReviewerStore>((set) => ({
   setSettings: (partial) =>
     set((s) => ({ settings: { ...s.settings, ...partial } })),
   setHistory: (history) => set({ history }),
+  updateTitle: (title) =>
+    set((s) => ({
+      title,
+      history: s.history.map((item) =>
+        item.id === s.reviewerId ? { ...item, title } : item
+      ),
+    })),
   removeHistoryItem: (id) =>
     set((s) => ({
       history: s.history.filter((h) => h.id !== id),
@@ -119,6 +128,12 @@ export const useReviewerStore = create<ReviewerStore>((set) => ({
         },
       };
     }),
+  appendQuiz: (questions) =>
+    set((s) =>
+      s.payload
+        ? { payload: { ...s.payload, quiz: [...s.payload.quiz, ...questions] } }
+        : s
+    ),
   clear: () =>
     set({
       payload: null,

@@ -94,25 +94,41 @@ export function FlashcardViewer({ cards, className }: FlashcardViewerProps) {
             flipped && "[transform:rotateY(180deg)]"
           )}
         >
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl border border-sf-border bg-sf-card p-6 text-center shadow-[0_20px_50px_rgba(0,0,0,0.35)] [backface-visibility:hidden]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl border border-sf-border/80 bg-sf-card p-6 text-center [backface-visibility:hidden]">
             <p className="text-xs uppercase tracking-[0.2em] text-sf-faint">
               Question
             </p>
             <p className="text-lg font-semibold leading-snug text-sf-text">
               {card.front}
             </p>
+            {card.imageUrl && (
+              <img
+                src={card.imageUrl}
+                alt=""
+                className="max-h-28 max-w-full rounded-lg object-contain"
+                loading="lazy"
+              />
+            )}
             <p className="text-xs text-sf-faint">
               Space / click to flip · ← → navigate
             </p>
           </div>
 
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl border border-sf-accent/35 bg-gradient-to-br from-sf-accent/15 to-sf-card p-6 text-center shadow-[0_20px_50px_rgba(0,0,0,0.35)] [backface-visibility:hidden] [transform:rotateY(180deg)]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-2xl border border-sf-accent/30 bg-sf-card-hover p-6 text-center [backface-visibility:hidden] [transform:rotateY(180deg)]">
             <p className="text-xs uppercase tracking-[0.2em] text-sf-accent/80">
               Answer
             </p>
             <p className="text-lg font-medium leading-snug text-sf-text">
               {card.back}
             </p>
+            {card.imageUrl && (
+              <img
+                src={card.imageUrl}
+                alt=""
+                className="max-h-28 max-w-full rounded-lg object-contain"
+                loading="lazy"
+              />
+            )}
           </div>
         </div>
       </button>

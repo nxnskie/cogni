@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { mapReviewerRecord } from "@/lib/reviewers";
 import { ensureAppUser, getAuthUser } from "@/lib/supabase-auth";
+import { generateReviewerFromMarkdown } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +52,79 @@ export async function GET(_req: NextRequest, context: RouteContext) {
   }
 }
 
+const quizExpansionSchema = z.object({
+  targetCount: z.number().int().min(5).max(100),
+});
+
+/** POST /api/reviewer/[id] — append quiz questions up to targetCount. */
+export async function POST(req: NextRequest, context: RouteContext) {
+  try {
+    const authResult = await requireUser();
+    if ("error" in authResult) return authResult.error;
+    const { id } = await context.params;
+    const body = quizExpansionSchema.safeParse(await req.json());
+    if (!body.success) return jsonError("Invalid quiz count", 400);
+
+    const record = await prisma.reviewer.findFirst({
+      where: { id, userId: authResult.userId },
+      include: {
+        quizItems: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+    if (!record) return jsonError("Reviewer not found", 404);
+    if (body.data.targetCount <= record.quizItems.length) {
+      return jsonError("The reviewer already has that many quiz questions.", 400);
+    }
+
+    const source = JSON.stringify(record.studyNotes);
+    const generated = await generateReviewerFromMarkdown(
+      `Existing study notes from the complete source:\n${source}`,
+      record.title,
+      {
+        flashcardCount: 5,
+        quizCount: body.data.targetCount - record.quizItems.length,
+        difficulty: record.difficulty as "easy" | "medium" | "hard",
+        focus: record.focus as "conceptual" | "formulas" | "definitions" | "balanced",
+      }
+    );
+    const additions = generated.quiz.slice(
+      0,
+      body.data.targetCount - record.quizItems.length
+    );
+
+    await prisma.$transaction(
+      additions.map((item, index) =>
+        prisma.quizItem.create({
+          data: {
+            reviewerId: id,
+            type: item.type,
+            question: item.question,
+            options: item.options,
+            correctAnswer: item.correctAnswer,
+            explanation: item.explanation,
+            imageUrl: item.imageUrl ?? null,
+            sortOrder: record.quizItems.length + index,
+          },
+        })
+      )
+    );
+
+    const updated = await prisma.reviewer.findFirst({
+      where: { id, userId: authResult.userId },
+      include: {
+        flashcards: { orderBy: { sortOrder: "asc" } },
+        quizItems: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+    return NextResponse.json(mapReviewerRecord(updated!), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    console.error("[reviewer] quiz expansion failed:", error);
+    return jsonError("Unable to generate additional quiz questions right now.", 503);
+  }
+}
+
 const patchSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   studyNotes: z
@@ -59,6 +133,8 @@ const patchSchema = z.object({
         title: z.string(),
         summary: z.string(),
         bulletPoints: z.array(z.string()),
+        details: z.string().optional(),
+        imageUrl: z.string().url().optional(),
       })
     )
     .optional(),
@@ -69,6 +145,7 @@ const patchSchema = z.object({
         front: z.string().optional(),
         back: z.string().optional(),
         tag: z.string().optional(),
+        imageUrl: z.string().url().nullable().optional(),
         status: z.enum(["needs_review", "mastered"]).optional(),
       })
     )
@@ -81,6 +158,7 @@ const patchSchema = z.object({
         options: z.array(z.string()).length(4).optional(),
         correctAnswer: z.string().optional(),
         explanation: z.string().optional(),
+        imageUrl: z.string().url().nullable().optional(),
         userAnswer: z.string().nullable().optional(),
         isCorrect: z.boolean().nullable().optional(),
       })
@@ -139,6 +217,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
             ...(card.back !== undefined ? { back: card.back } : {}),
             ...(card.tag !== undefined ? { tag: card.tag } : {}),
             ...(card.status !== undefined ? { status: card.status } : {}),
+            ...(card.imageUrl !== undefined ? { imageUrl: card.imageUrl } : {}),
           },
         });
       }
@@ -163,6 +242,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
             ...(item.isCorrect !== undefined
               ? { isCorrect: item.isCorrect }
               : {}),
+            ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
           },
         });
       }
